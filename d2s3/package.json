@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "compile:css": "bunx @tailwindcss/cli -i ./Styles/input.css -o ./wwwroot/dist/css/output.css",
+    "watch:css": "bunx @tailwindcss/cli -i ./Styles/input.css -o ./wwwroot/dist/css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.9"
+  }
+}
