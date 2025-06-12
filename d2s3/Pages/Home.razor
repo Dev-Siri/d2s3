@@ -1,0 +1,19 @@
+﻿@page "/"
+@page "/chat/{ChatId:nonfile?}"
+
+<PageTitle>d2s3</PageTitle>
+
+<div class="flex flex-col items-center justify-center h-screen">
+  @if (ChatId == null)
+  {
+    <h1 class="text-7xl mt-10 outline-none">ask anything.</h1>
+  }
+  <div class="flex justify-center mt-10 w-full">
+    <ChatInput />
+  </div>
+</div>
+
+@code {
+  [Parameter]
+  public string? ChatId { get; set; }
+}

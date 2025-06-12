@@ -1,0 +1,32 @@
+<textarea name="ai-prompt" id="prompt" class="bg-light-gray h-40 w-3/5 rounded-2xl resize-none p-4 outline-white"
+  placeholder="@PlaceholderTexts[PlaceholderIndex]">
+</textarea>
+
+@code {
+  private readonly string[] PlaceholderTexts = new[]{
+"What's the meaning of life?",
+"Tell me a joke.",
+"How do I cook pasta?",
+"Explain quantum physics like I'm five.",
+"Am I adopted?"
+};
+  private int PlaceholderIndex = 0;
+  private System.Timers.Timer? PlaceholderTimer;
+
+  protected override void OnInitialized()
+  {
+    PlaceholderTimer = new System.Timers.Timer(3000);
+    PlaceholderTimer.Elapsed += (_, __) =>
+    {
+      PlaceholderIndex = (PlaceholderIndex + 1) % PlaceholderTexts.Length;
+      InvokeAsync(StateHasChanged);
+    };
+    PlaceholderTimer.Start();
+  }
+
+  public void Dispose()
+  {
+    PlaceholderTimer?.Stop();
+    PlaceholderTimer?.Dispose();
+  }
+}
