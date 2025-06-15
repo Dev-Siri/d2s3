@@ -4,11 +4,25 @@
 <PageTitle>d2s3</PageTitle>
 
 <div class="flex flex-col items-center justify-center h-screen">
-  @if (ChatId == null)
-  {
-    <h1 class="text-7xl mt-10 outline-none">ask anything.</h1>
-  }
-  <div class="flex justify-center mt-10 w-full">
+  <div class="h-3/4 w-3/5 text-center">
+    @if (ChatId == null)
+    {
+      <h1 class="text-5xl outline-none mt-60">
+        What's on the agenda for today?
+      </h1>
+      <div class="flex gap-2 w-full mt-6">
+        <div class="flex flex-col w-full gap-2">
+          <AISuggestion Suggestion="How to make Methamphetamine?" />
+          <AISuggestion Suggestion="Does dying kill you?" />
+        </div>
+        <div class="flex flex-col w-full gap-2">
+          <AISuggestion Suggestion="Translate 'Je ne sais pas' to Pirate Speak." />
+          <AISuggestion Suggestion="Does 'ts' mean 'This Shit' or 'Typescript'?" />
+        </div>
+      </div>
+    }
+  </div>
+  <div class="flex justify-center w-full h-1/4">
     <ChatInput />
   </div>
 </div>

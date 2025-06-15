@@ -1,14 +1,22 @@
 ﻿@inherits LayoutComponentBase
 
-<main class="flex h-screen w-screen bg-black">
-    <section class="h-full w-1/5">
-        <Sidebar />
-    </section>
-    <section class="h-full w-4/5">
+<main class="flex h-screen w-screen bg-black duration-200">
+    <button type="button"
+        class="absolute bg-white text-black duration-200 hover:opacity-80 inset-0 h-fit w-fit p-3 py-2 top-2 left-2 rounded-full cursor-pointer"
+        @onclick="_ => IsSidebarOpen = !IsSidebarOpen">
+        <i class="bi bi-layout-sidebar"></i>
+    </button>
+    @if (IsSidebarOpen)
+    {
+        <section class="h-full w-1/5">
+            <Sidebar />
+        </section>
+    }
+    <section class="h-full @(IsSidebarOpen ? "w-4/5" : "w-full")">
         @Body
     </section>
 </main>
 
 @code {
-
+    bool IsSidebarOpen = true;
 }

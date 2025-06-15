@@ -1,21 +1,32 @@
-<textarea name="ai-prompt" id="prompt" class="bg-light-gray h-40 w-3/5 rounded-2xl resize-none p-4 outline-white"
-  placeholder="@PlaceholderTexts[PlaceholderIndex]">
+<div class="h-full w-3/5 outline-white bg-light-gray rounded-t-2xl p-4">
+  <textarea name="ai-prompt" id="prompt" class="bg-transparent h-3/4 resize-none outline-none w-full"
+    placeholder="@PlaceholderTexts[PlaceholderIndex]">
 </textarea>
+  <div class="flex justify-end">
+    <button type="button" class="bg-white text-black rounded-full duration-200 hover:opacity-75 cursor-pointer p-2 px-3.5" @onclick="HandlePrompt">
+      ↑
+    </button>
+  </div>
+</div>
 
 @code {
   private readonly string[] PlaceholderTexts = new[]{
-"What's the meaning of life?",
-"Tell me a joke.",
-"How do I cook pasta?",
-"Explain quantum physics like I'm five.",
+"What does 'Tung Tung Tung Tung Sahur' mean?",
+"Translate 'gurt: yo sybau ikiab' to English.",
+"@grok is this true?",
 "Am I adopted?"
 };
   private int PlaceholderIndex = 0;
   private System.Timers.Timer? PlaceholderTimer;
 
+  public void HandlePrompt()
+  {
+    Console.WriteLine("fdsf;l");
+  }
+
   protected override void OnInitialized()
   {
-    PlaceholderTimer = new System.Timers.Timer(3000);
+    PlaceholderTimer = new System.Timers.Timer(5000);
     PlaceholderTimer.Elapsed += (_, __) =>
     {
       PlaceholderIndex = (PlaceholderIndex + 1) % PlaceholderTexts.Length;
