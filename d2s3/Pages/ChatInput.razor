@@ -1,9 +1,17 @@
+@using d2s3.State
+@using d2s3.Models
+@using d2s3.Services
+@inject AiService AiService
+@inject ChatStateContainer ChatState
+
 <div class="h-full w-3/5 outline-white bg-light-gray rounded-t-2xl p-4">
   <textarea name="ai-prompt" id="prompt" class="bg-transparent h-3/4 resize-none outline-none w-full"
-    placeholder="@PlaceholderTexts[PlaceholderIndex]">
+    placeholder="@PlaceholderTexts[PlaceholderIndex]" @bind="ChatState.CurrentPrompt">
 </textarea>
   <div class="flex justify-end">
-    <button type="button" class="bg-white text-black rounded-full duration-200 hover:opacity-75 cursor-pointer p-2 px-3.5" @onclick="HandlePrompt">
+    <button type="button"
+      class="bg-white text-black rounded-full duration-200 hover:opacity-75 cursor-pointer p-2 px-3.5"
+      @onclick="HandlePrompt" disabled="@ChatState.IsLoadingAiResponse">
       ↑
     </button>
   </div>
@@ -19,9 +27,31 @@
   private int PlaceholderIndex = 0;
   private System.Timers.Timer? PlaceholderTimer;
 
-  public void HandlePrompt()
+  private async void HandlePrompt()
   {
-    Console.WriteLine("fdsf;l");
+    var prompt = ChatState.CurrentPrompt.Trim();
+
+    if (string.IsNullOrEmpty(prompt)) return;
+
+    var updatedMessages = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
+{ MessageText = ChatState.CurrentPrompt, Role = UserRole.User, TimeStamp = new DateTime(), MessageType =
+MessageType.Success }
+};
+
+    ChatState.CurrentChatMessages = updatedMessages;
+    ChatState.CurrentPrompt = "";
+
+    ChatState.IsLoadingAiResponse = true;
+
+    var aiResponse = await AiService.GenerateTextAsync(ChatState.CurrentPrompt);
+
+    var updatedMessagesWithResponse = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
+{ MessageText = aiResponse.ResponseMessage, Role = UserRole.Ai, TimeStamp = new DateTime(), MessageType =
+aiResponse.Success ? MessageType.Success : MessageType.Failure }
+};
+
+    ChatState.CurrentChatMessages = updatedMessagesWithResponse;
+    ChatState.IsLoadingAiResponse = false;
   }
 
   protected override void OnInitialized()

@@ -1,11 +1,18 @@
-﻿@page "/"
+﻿@using System.Text
+@using System.Net.Http.Headers
+@using System.Text.Json
+@using d2s3.State
+@using d2s3.Models
+@inject ChatStateContainer ChatState
+@implements IDisposable
+@page "/"
 @page "/chat/{ChatId:nonfile?}"
 
 <PageTitle>d2s3</PageTitle>
 
 <div class="flex flex-col items-center justify-center h-screen">
   <div class="h-3/4 w-3/5 text-center">
-    @if (ChatId == null)
+    @if (ChatState.CurrentChatMessages.Count() == 0)
     {
       <h1 class="text-5xl outline-none mt-60">
         What's on the agenda for today?
@@ -21,6 +28,22 @@
         </div>
       </div>
     }
+    else
+    {
+      <div class="h-full w-full flex flex-col overflow-y-auto gap-2 pt-4">
+        @foreach (var message in ChatState.CurrentChatMessages)
+        {
+          <p
+            class="@(message.MessageType == MessageType.Failure ? "bg-red-500" : message.Role == UserRole.User ? "bg-light-gray" : "bg-transparent") flex gap-2 items-center rounded-full px-6 p-3 w-fit @(message.Role == UserRole.User ? "ml-auto" : "")">
+            @if (message.MessageType == MessageType.Failure)
+            {
+              <i class="bi bi-exclamation-circle-fill"></i>
+            }
+            @message.MessageText
+          </p>
+        }
+      </div>
+    }
   </div>
   <div class="flex justify-center w-full h-1/4">
     <ChatInput />
@@ -30,4 +53,14 @@
 @code {
   [Parameter]
   public string? ChatId { get; set; }
+
+  protected override void OnInitialized()
+  {
+    ChatState.OnMessagesChange += StateHasChanged;
+  }
+
+  public void Dispose()
+  {
+    ChatState.OnMessagesChange -= StateHasChanged;
+  }
 }
