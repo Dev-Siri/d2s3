@@ -1,0 +1,6 @@
+@d2s3_server_HostAddress = http://localhost:5203
+
+GET {{d2s3_server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
