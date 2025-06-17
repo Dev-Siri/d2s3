@@ -14,6 +14,14 @@
 
 <body class="bg-black text-white">
   <div id="root"></div>
+  <script>
+    window.scrollToBottom = (elementId) => {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.scrollTo(0, el.scrollHeight);
+      }
+    };
+  </script>
   <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using d2s3.State
 @using d2s3.Models
+@using Markdig
 @inject ChatStateContainer ChatState
 @implements IDisposable
 @page "/"
@@ -30,17 +31,31 @@
     }
     else
     {
-      <div class="h-full w-full flex flex-col overflow-y-auto gap-2 pt-4">
+      <div class="h-full w-full flex flex-col overflow-y-auto overflow-x-hidden gap-2 pt-4 pb-20" id="chat-list">
         @foreach (var message in ChatState.CurrentChatMessages)
         {
-          <p
-            class="@(message.MessageType == MessageType.Failure ? "bg-red-500" : message.Role == UserRole.User ? "bg-light-gray" : "bg-transparent") flex gap-2 items-center rounded-full px-6 p-3 w-fit @(message.Role == UserRole.User ? "ml-auto" : "")">
+          <span
+            class="@(message.MessageType == MessageType.Failure ? "bg-red-500" : message.Role == UserRole.User ? "bg-light-gray" : "bg-transparent") text-start flex gap-2 items-start rounded-full p-3 w-fit @(message.Role == UserRole.User ? "ml-auto max-w-96 px-6" : "mr-auto max-w-full")">
             @if (message.MessageType == MessageType.Failure)
             {
               <i class="bi bi-exclamation-circle-fill"></i>
             }
-            @message.MessageText
-          </p>
+            @if (message.MessageType == MessageType.Success && message.Role == UserRole.Ai)
+            {
+              <img src="/siri.jpeg" height="20" width="20" class="rounded-full mt-1" />
+            }
+            <div class="w-max-fill overflow-x-auto">
+              @((MarkupString)Markdown.ToHtml(message.MessageText))
+            </div>
+          </span>
+        }
+        @if (ChatState.IsLoadingAiResponse)
+        {
+          <div class="flex gap-2 animate-pulse items-center">
+            <div class="h-4 w-4 rounded-full bg-white">
+            </div>
+            <p>Thinking</p>
+          </div>
         }
       </div>
     }
@@ -57,10 +72,14 @@
   protected override void OnInitialized()
   {
     ChatState.OnMessagesChange += StateHasChanged;
+    ChatState.OnAiLoadingResponseChange += StateHasChanged;
+    ChatState.OnPromptChange += StateHasChanged;
   }
 
   public void Dispose()
   {
     ChatState.OnMessagesChange -= StateHasChanged;
+    ChatState.OnAiLoadingResponseChange -= StateHasChanged;
+    ChatState.OnPromptChange -= StateHasChanged;
   }
 }

@@ -1,8 +1,38 @@
-<button type="button" class="border border-light-gray p-4 rounded-3xl cursor-pointer duration-200 hover:bg-light-gray">
+@using d2s3.State
+@using d2s3.Models
+@using d2s3.Services
+@inject ChatStateContainer ChatState
+@inject AiService AiService
+
+<button type="button" class="border border-light-gray p-4 rounded-3xl cursor-pointer duration-200 hover:bg-light-gray"
+  @onclick="InvokeSuggestion">
   @Suggestion
 </button>
 
 @code {
   [Parameter]
-  public string? Suggestion { get; set; }
+  public required string Suggestion { get; set; }
+
+  private async void InvokeSuggestion()
+  {
+    var updatedMessages = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
+{ MessageText = Suggestion, Role = UserRole.User, TimeStamp = new DateTime(), MessageType =
+MessageType.Success }
+};
+
+    ChatState.CurrentChatMessages = updatedMessages;
+    ChatState.IsLoadingAiResponse = true;
+
+    var aiResponse = await AiService.GenerateTextAsync(Suggestion);
+
+    var updatedMessagesWithResponse = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
+{ MessageText = aiResponse.ResponseMessage, Role = UserRole.Ai, TimeStamp = new DateTime(), MessageType =
+aiResponse.Success ? MessageType.Success : MessageType.Failure }
+};
+
+    ChatState.CurrentChatMessages = updatedMessagesWithResponse;
+    ChatState.IsLoadingAiResponse = false;
+
+    await InvokeAsync(StateHasChanged);
+  }
 }

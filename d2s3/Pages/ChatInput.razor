@@ -2,15 +2,16 @@
 @using d2s3.Models
 @using d2s3.Services
 @inject AiService AiService
+@inject IJSRuntime JS
 @inject ChatStateContainer ChatState
 
 <div class="h-full w-3/5 outline-white bg-light-gray rounded-t-2xl p-4">
   <textarea name="ai-prompt" id="prompt" class="bg-transparent h-3/4 resize-none outline-none w-full"
-    placeholder="@PlaceholderTexts[PlaceholderIndex]" @bind="ChatState.CurrentPrompt">
-</textarea>
+    placeholder="@PlaceholderTexts[PlaceholderIndex]" @bind="ChatState.CurrentPrompt" @onkeypress="HandlePromptEnter">
+  </textarea>
   <div class="flex justify-end">
     <button type="button"
-      class="bg-white text-black rounded-full duration-200 hover:opacity-75 cursor-pointer p-2 px-3.5"
+      class="bg-white text-black rounded-full duration-200 hover:opacity-75 cursor-pointer p-2 px-3.5 disabled:opacity-50"
       @onclick="HandlePrompt" disabled="@ChatState.IsLoadingAiResponse">
       ↑
     </button>
@@ -33,14 +34,14 @@
 
     if (string.IsNullOrEmpty(prompt)) return;
 
+    await JS.InvokeVoidAsync("scrollToBottom", "chat-list");
+
     var updatedMessages = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
 { MessageText = ChatState.CurrentPrompt, Role = UserRole.User, TimeStamp = new DateTime(), MessageType =
 MessageType.Success }
 };
 
     ChatState.CurrentChatMessages = updatedMessages;
-    ChatState.CurrentPrompt = "";
-
     ChatState.IsLoadingAiResponse = true;
 
     var aiResponse = await AiService.GenerateTextAsync(ChatState.CurrentPrompt);
@@ -51,7 +52,20 @@ aiResponse.Success ? MessageType.Success : MessageType.Failure }
 };
 
     ChatState.CurrentChatMessages = updatedMessagesWithResponse;
+
+    ChatState.CurrentPrompt = "";
     ChatState.IsLoadingAiResponse = false;
+
+    await InvokeAsync(StateHasChanged);
+    await JS.InvokeVoidAsync("scrollToBottom", "chat-list");
+  }
+
+  private void HandlePromptEnter(KeyboardEventArgs e)
+  {
+    if (e.Code == "Enter")
+    {
+      HandlePrompt();
+    }
   }
 
   protected override void OnInitialized()

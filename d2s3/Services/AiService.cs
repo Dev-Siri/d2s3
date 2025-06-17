@@ -6,62 +6,61 @@ namespace d2s3.Services
 {
   public class AiService(HttpClient? httpClient)
   {
-    private readonly string _apiKey = "";
+    public readonly string url = "http://localhost:5203";
 
     public async Task<AiResponse> GenerateTextAsync(string prompt)
     {
       if (httpClient == null) return new AiResponse
       {
         Success = false,
-        ResponseMessage = "Error: Failed to generate prompt."
+        ResponseMessage = "Error: Failed to generate response."
       };
 
-      var url = "https://api.openai.com/v1/completions";
-
-      var requestData = new
+      try
       {
-        model = "gpt-4.1",
-        input = prompt,
-        max_tokens = 150,
-        temperature = 0.7
-      };
-
-      var jsonContent = JsonSerializer.Serialize(requestData);
-      var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-      var request = new HttpRequestMessage(HttpMethod.Post, url);
-      request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
-      request.Content = content;
-
-      var response = await httpClient.SendAsync(request);
-
-      if (response.IsSuccessStatusCode)
-      {
-        var responseContent = await response.Content.ReadAsStringAsync();
-        var completion = JsonSerializer.Deserialize<JsonElement>(responseContent);
-
-        Console.WriteLine(completion);
-
-        var responseText = completion.GetProperty("choices")[0].GetProperty("text").GetString();
-
-        if (responseText == null) return new AiResponse
+        var jsonContent = JsonSerializer.Serialize(new { prompt });
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{url}/gemini")
         {
-          Success = false,
-          ResponseMessage = "Error: Prompt generated was empty."
+          Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
         };
 
-        return new AiResponse
+        var response = await httpClient.SendAsync(request);
+
+        if (response.IsSuccessStatusCode)
         {
-          Success = true,
-          ResponseMessage = responseText,
-        };
+          var responseContent = await response.Content.ReadAsStringAsync();
+          var completion = JsonSerializer.Deserialize<JsonElement>(responseContent);
+
+          var success = completion.GetProperty("success").GetBoolean();
+          var responseText = completion.GetProperty("responseMessage").GetString();
+
+          if (responseText == null || !success) return new AiResponse
+          {
+            Success = false,
+            ResponseMessage = "Error: Unable to generate response."
+          };
+
+          return new AiResponse
+          {
+            Success = true,
+            ResponseMessage = responseText,
+          };
+        }
+        else
+        {
+          return new AiResponse
+          {
+            Success = false,
+            ResponseMessage = "Error: Could not generate response.",
+          };
+        }
       }
-      else
+      catch
       {
         return new AiResponse
         {
           Success = false,
-          ResponseMessage = "Error: Could not generate prompt.",
+          ResponseMessage = "Error: An unhandled exception occured while sending request to API."
         };
       }
     }
