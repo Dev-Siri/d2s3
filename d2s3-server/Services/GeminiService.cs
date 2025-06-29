@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using d2s3_server.Models;
@@ -6,9 +7,22 @@ namespace d2s3_server.Services
 {
   class GeminiService
   {
-    private readonly string _geminiApiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? "";
+    private readonly string _geminiApiKey = "";
 
-    public async Task<AiResponse> GenerateTextAsync(string prompt)
+    private GeminiService()
+    {
+      var key = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
+
+      if (key == null)
+      {
+        Console.Error.WriteLine("ERR: Missing environment variable 'GEMINI_API_KEY'.");
+        return;
+      }
+
+      _geminiApiKey = key;
+    }
+
+    public async Task<Response> GenerateTextAsync(string prompt)
     {
       var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_geminiApiKey}";
 
@@ -45,13 +59,13 @@ namespace d2s3_server.Services
 
         var responseText = completion.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
 
-        if (responseText == null) return new AiResponse
+        if (responseText == null) return new Response
         {
           Success = false,
           ResponseMessage = "Error: Prompt generated was empty."
         };
 
-        return new AiResponse
+        return new Response
         {
           Success = true,
           ResponseMessage = responseText,
@@ -59,7 +73,7 @@ namespace d2s3_server.Services
       }
       else
       {
-        return new AiResponse
+        return new Response
         {
           Success = false,
           ResponseMessage = "Error: Could not generate prompt.",
