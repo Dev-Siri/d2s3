@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using d2s3_server.Models;
@@ -9,7 +8,7 @@ namespace d2s3_server.Services
   {
     private readonly string _geminiApiKey = "";
 
-    private GeminiService()
+    public GeminiService()
     {
       var key = Environment.GetEnvironmentVariable("GEMINI_API_KEY");
 
@@ -22,23 +21,12 @@ namespace d2s3_server.Services
       _geminiApiKey = key;
     }
 
-    public async Task<Response> GenerateTextAsync(string prompt)
+    public async Task<Response> GenerateTextAsync(List<OneModelMessage> messages)
     {
       var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_geminiApiKey}";
-
-      var requestData = new
+      var requestData = new GeminiRequest
       {
-        contents = new[]
-        {
-          new
-          {
-          role = "user",
-          parts = new []
-          {
-            new { text = prompt }
-          }
-          }
-        }
+        Contents = messages
       };
 
       var jsonContent = JsonSerializer.Serialize(requestData);
@@ -72,6 +60,9 @@ namespace d2s3_server.Services
         };
       }
       else
+        Console.WriteLine(
+          JsonSerializer.Serialize(response)
+        );
       {
         return new Response
         {

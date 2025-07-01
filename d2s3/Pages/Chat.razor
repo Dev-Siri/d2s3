@@ -1,0 +1,150 @@
+@using System.Threading
+@using System.Text.Json
+@using System.Text
+@using d2s3.State
+@using d2s3.Models
+@using Markdig
+@inject ChatStateContainer ChatState
+@implements IDisposable
+@page "/chat/{ChatId:nonfile?}"
+
+<PageTitle>@title</PageTitle>
+
+<div class="flex flex-col items-center justify-center h-screen">
+  <div class="h-3/4 w-3/5 flex flex-col overflow-y-auto overflow-x-hidden gap-2 pt-4 pb-20" id="chat-list">
+    @foreach (var message in ChatState.CurrentChatMessages)
+    {
+      <span class="@GenerateMessageClasses(message.Role, message.MessageType)">
+        @if (message.MessageType == MessageType.Failure)
+        {
+          <i class="bi bi-exclamation-circle-fill"></i>
+        }
+        @if (message.MessageType == MessageType.Success && message.Role == UserRole.Ai)
+        {
+          <img src="/siri.jpeg" height="20" width="20" class="rounded-full mt-1" />
+        }
+        <div class="w-max-fill overflow-x-auto">
+          @((MarkupString)Markdown.ToHtml(message.MessageText))
+        </div>
+      </span>
+    }
+    @if (ChatState.IsLoadingAiResponse)
+    {
+      <div class="flex gap-2 animate-pulse items-center">
+        <div class="h-4 w-4 rounded-full bg-white">
+        </div>
+        <p>Thinking</p>
+      </div>
+    }
+  </div>
+  <div class="flex justify-center w-full h-1/4">
+    <ChatInput />
+  </div>
+</div>
+
+@code {
+  [Parameter]
+  public string? ChatId { get; set; }
+  [Parameter]
+  [SupplyParameterFromQuery(Name = "isNew")]
+  public bool IsNew { get; set; } = false;
+
+  private string title = "New Chat";
+
+  CancellationTokenSource DisposalTokenSource = new CancellationTokenSource();
+
+  private string GenerateMessageClasses(UserRole role, MessageType messageType)
+  {
+    var stringBuilder = new StringBuilder();
+
+    if (role == UserRole.User)
+    {
+      stringBuilder.Append("ml-auto max-w-96");
+    }
+    else
+    {
+      stringBuilder.Append("mr-auto max-w-full");
+    }
+
+    if (messageType == MessageType.Failure)
+    {
+      stringBuilder.Append(" text-red-400");
+    }
+    else if (role == UserRole.User)
+    {
+      stringBuilder.Append(" px-6 bg-light-gray");
+    }
+
+    stringBuilder.Append(" text-start flex gap-2 items-start rounded-full p-3 w-fit");
+
+    return stringBuilder.ToString();
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    if (ChatId == null) return;
+
+    await ChatState.ConnectWS(ChatId, IsNew, DisposalTokenSource);
+    _ = ReceiveLoop();
+  }
+
+  async Task ReceiveLoop()
+  {
+    var buffer = new ArraySegment<byte>(new byte[1024 * 4]);
+
+    while (!DisposalTokenSource.IsCancellationRequested)
+    {
+      var received = await ChatState.WebSocket.ReceiveAsync(buffer, DisposalTokenSource.Token);
+
+      try
+      {
+        if (buffer.Array != null)
+        {
+          var receivedAsText = Encoding.UTF8.GetString(buffer.Array, 0, received.Count);
+          var receivedMessage = JsonSerializer.Deserialize<AiResponse>(receivedAsText);
+
+          if (receivedMessage != null)
+          {
+            ChatState.CurrentChatMessages.Add(new ChatMessage
+            {
+              Role = UserRole.Ai,
+              MessageText = receivedMessage.ResponseMessage,
+              MessageType = MessageType.Success,
+              TimeStamp = DateTime.UtcNow
+            });
+          }
+        }
+      }
+      catch (Exception err)
+      {
+        Console.WriteLine($"Error receiving message: {err.Message}");
+      }
+
+      if (received.CloseStatus.HasValue)
+      {
+        await ChatState.WebSocket.CloseAsync(received.CloseStatus.Value, received.CloseStatusDescription,
+        DisposalTokenSource.Token);
+        break;
+      }
+
+      StateHasChanged();
+    }
+  }
+
+  protected override void OnInitialized()
+  {
+    ChatState.OnMessagesChange += StateHasChanged;
+    ChatState.OnAiLoadingResponseChange += StateHasChanged;
+    ChatState.OnPromptChange += StateHasChanged;
+  }
+
+  public void Dispose()
+  {
+    ChatState.OnMessagesChange -= StateHasChanged;
+    ChatState.OnAiLoadingResponseChange -= StateHasChanged;
+    ChatState.OnPromptChange -= StateHasChanged;
+
+    DisposalTokenSource.Cancel();
+    _ = ChatState.DisconectWS(DisposalTokenSource);
+  }
+}

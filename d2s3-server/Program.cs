@@ -26,7 +26,7 @@ builder.Services.AddSingleton(_ =>
 
     if (connectionString == null)
     {
-        Console.WriteLine("ERR: Missing environment variable 'MONGODB_URI'");
+        Console.Error.WriteLine("ERR: Missing environment variable 'MONGODB_URI'");
         Environment.Exit(0);
     }
 
@@ -41,7 +41,7 @@ if (app.Environment.IsDevelopment())
 }
 
 var webSocketOptions = new WebSocketOptions
-{ KeepAliveInterval = TimeSpan.FromSeconds(120) };
+{ KeepAliveInterval = TimeSpan.FromMinutes(2) };
 
 app.UseWebSockets(webSocketOptions);
 app.UseHttpsRedirection();
@@ -53,13 +53,13 @@ app.Map("/chat", async context =>
     context.Response.Redirect($"/chat/{newChatId}?isNew=true");
 });
 
-app.Map("/chat/{id:guid}", async (Guid id, [FromQuery] bool isNew, HttpContext context, MongoClient mongo) =>
+app.Map("/chat/{id:guid}", async (Guid id, [FromQuery] bool isNew, HttpContext context, MongoClient mongo, GeminiService geminiService) =>
 {
     if (context.WebSockets.IsWebSocketRequest)
     {
         using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
 
-        await ChatSocket.HandleWSMessages(context, webSocket, mongo, id, isNew);
+        await ChatSocket.HandleWSMessages(context, webSocket, mongo, geminiService, id, isNew);
     }
     else
     {
@@ -69,8 +69,8 @@ app.Map("/chat/{id:guid}", async (Guid id, [FromQuery] bool isNew, HttpContext c
 
 app.MapPost("/gemini", async ([FromBody] AiRequest request, GeminiService geminiService) =>
 {
-    var result = await geminiService.GenerateTextAsync(request.Prompt);
-    return Results.Json(result);
+    // var result = await geminiService.GenerateTextAsync(request.Prompt);
+    // return Results.Json("÷");
 })
 .WithName("GenerateTextGemini");
 

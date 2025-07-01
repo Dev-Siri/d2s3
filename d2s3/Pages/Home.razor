@@ -1,85 +1,24 @@
-﻿@using System.Text
-@using System.Net.Http.Headers
-@using System.Text.Json
-@using d2s3.State
-@using d2s3.Models
-@using Markdig
-@inject ChatStateContainer ChatState
-@implements IDisposable
-@page "/"
-@page "/chat/{ChatId:nonfile?}"
+﻿@page "/"
 
-<PageTitle>d2s3</PageTitle>
+<PageTitle>New Chat</PageTitle>
 
 <div class="flex flex-col items-center justify-center h-screen">
   <div class="h-3/4 w-3/5 text-center">
-    @if (ChatState.CurrentChatMessages.Count() == 0)
-    {
-      <h1 class="text-5xl outline-none mt-60">
-        What's on the agenda for today?
-      </h1>
-      <div class="flex gap-2 w-full mt-6">
-        <div class="flex flex-col w-full gap-2">
-          <AISuggestion Suggestion="How to make Methamphetamine?" />
-          <AISuggestion Suggestion="Does dying kill you?" />
-        </div>
-        <div class="flex flex-col w-full gap-2">
-          <AISuggestion Suggestion="Translate 'Je ne sais pas' to Pirate Speak." />
-          <AISuggestion Suggestion="Does 'ts' mean 'This Shit' or 'Typescript'?" />
-        </div>
+    <h1 class="text-5xl outline-none mt-60">
+      What's on the agenda for today?
+    </h1>
+    <div class="flex gap-2 w-full mt-6">
+      <div class="flex flex-col w-full gap-2">
+        <AISuggestion Suggestion="How to make Methamphetamine?" />
+        <AISuggestion Suggestion="Does dying kill you?" />
       </div>
-    }
-    else
-    {
-      <div class="h-full w-full flex flex-col overflow-y-auto overflow-x-hidden gap-2 pt-4 pb-20" id="chat-list">
-        @foreach (var message in ChatState.CurrentChatMessages)
-        {
-          <span
-            class="@(message.MessageType == MessageType.Failure ? "bg-red-500" : message.Role == UserRole.User ? "bg-light-gray" : "bg-transparent") text-start flex gap-2 items-start rounded-full p-3 w-fit @(message.Role == UserRole.User ? "ml-auto max-w-96 px-6" : "mr-auto max-w-full")">
-            @if (message.MessageType == MessageType.Failure)
-            {
-              <i class="bi bi-exclamation-circle-fill"></i>
-            }
-            @if (message.MessageType == MessageType.Success && message.Role == UserRole.Ai)
-            {
-              <img src="/siri.jpeg" height="20" width="20" class="rounded-full mt-1" />
-            }
-            <div class="w-max-fill overflow-x-auto">
-              @((MarkupString)Markdown.ToHtml(message.MessageText))
-            </div>
-          </span>
-        }
-        @if (ChatState.IsLoadingAiResponse)
-        {
-          <div class="flex gap-2 animate-pulse items-center">
-            <div class="h-4 w-4 rounded-full bg-white">
-            </div>
-            <p>Thinking</p>
-          </div>
-        }
+      <div class="flex flex-col w-full gap-2">
+        <AISuggestion Suggestion="Translate 'Je ne sais pas' to Pirate Speak." />
+        <AISuggestion Suggestion="Does 'ts' mean 'This Shit' or 'TypeScript'?" />
       </div>
-    }
+    </div>
   </div>
   <div class="flex justify-center w-full h-1/4">
-    <ChatInput />
+    <ChatInput IsNew="true" />
   </div>
 </div>
-
-@code {
-  [Parameter]
-  public string? ChatId { get; set; }
-
-  protected override void OnInitialized()
-  {
-    ChatState.OnMessagesChange += StateHasChanged;
-    ChatState.OnAiLoadingResponseChange += StateHasChanged;
-    ChatState.OnPromptChange += StateHasChanged;
-  }
-
-  public void Dispose()
-  {
-    ChatState.OnMessagesChange -= StateHasChanged;
-    ChatState.OnAiLoadingResponseChange -= StateHasChanged;
-    ChatState.OnPromptChange -= StateHasChanged;
-  }
-}

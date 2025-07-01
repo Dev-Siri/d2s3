@@ -1,24 +1,31 @@
 @using d2s3.State
 @using d2s3.Models
+@using System.Net.WebSockets
 @using d2s3.Services
-@inject AiService AiService
+@inject NavigationManager NavigationManager
 @inject IJSRuntime JS
 @inject ChatStateContainer ChatState
 
-<div class="h-full w-3/5 outline-white bg-light-gray rounded-t-2xl p-4">
+<form method="POST" class="h-full w-3/5 outline-white bg-light-gray rounded-t-2xl p-4" @onsubmit:preventDefault
+  @onsubmit="HandlePrompt">
   <textarea name="ai-prompt" id="prompt" class="bg-transparent h-3/4 resize-none outline-none w-full"
-    placeholder="@PlaceholderTexts[PlaceholderIndex]" @bind="ChatState.CurrentPrompt" @onkeypress="HandlePromptEnter">
+    placeholder="@PlaceholderTexts[PlaceholderIndex]" @bind="ChatState.CurrentPrompt" @onkeydown="HandlePromptEnter">
   </textarea>
   <div class="flex justify-end">
-    <button type="button"
+    <button type="submit"
       class="bg-white text-black rounded-full duration-200 hover:opacity-75 cursor-pointer p-2 px-3.5 disabled:opacity-50"
-      @onclick="HandlePrompt" disabled="@ChatState.IsLoadingAiResponse">
+      disabled="@ChatState.IsLoadingAiResponse">
       ↑
     </button>
   </div>
-</div>
+</form>
 
 @code {
+  [Parameter]
+  public string? ChatId { get; set; }
+  [Parameter]
+  public bool IsNew { get; set; } = false;
+
   private readonly string[] PlaceholderTexts = new[]{
 "What does 'Tung Tung Tung Tung Sahur' mean?",
 "Translate 'gurt: yo sybau ikiab' to English.",
@@ -28,43 +35,19 @@
   private int PlaceholderIndex = 0;
   private System.Timers.Timer? PlaceholderTimer;
 
-  private async void HandlePrompt()
+  private async Task HandlePrompt()
   {
-    var prompt = ChatState.CurrentPrompt.Trim();
-
-    if (string.IsNullOrEmpty(prompt)) return;
-
-    await JS.InvokeVoidAsync("scrollToBottom", "chat-list");
-
-    var updatedMessages = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
-{ MessageText = ChatState.CurrentPrompt, Role = UserRole.User, TimeStamp = new DateTime(), MessageType =
-MessageType.Success }
-};
-
-    ChatState.CurrentChatMessages = updatedMessages;
-    ChatState.IsLoadingAiResponse = true;
-
-    var aiResponse = await AiService.GenerateTextAsync(ChatState.CurrentPrompt);
-
-    var updatedMessagesWithResponse = new List<ChatMessage>(ChatState.CurrentChatMessages) { new ChatMessage
-{ MessageText = aiResponse.ResponseMessage, Role = UserRole.Ai, TimeStamp = new DateTime(), MessageType =
-aiResponse.Success ? MessageType.Success : MessageType.Failure }
-};
-
-    ChatState.CurrentChatMessages = updatedMessagesWithResponse;
-
-    ChatState.CurrentPrompt = "";
-    ChatState.IsLoadingAiResponse = false;
-
+    await ChatState.HandlePrompt(NavigationManager, ChatId, IsNew);
     await InvokeAsync(StateHasChanged);
     await JS.InvokeVoidAsync("scrollToBottom", "chat-list");
   }
 
-  private void HandlePromptEnter(KeyboardEventArgs e)
+  private async Task HandlePromptEnter(KeyboardEventArgs e)
   {
-    if (e.Code == "Enter")
+    if (e.Code == "Enter" && e.ShiftKey)
     {
-      HandlePrompt();
+      await JS.InvokeVoidAsync("scrollToBottom", "chat-list");
+      await HandlePrompt();
     }
   }
 

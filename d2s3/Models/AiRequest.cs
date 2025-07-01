@@ -1,4 +1,4 @@
-namespace d2s3_server.Models
+namespace d2s3.Models
 {
   public class AiRequest
   {

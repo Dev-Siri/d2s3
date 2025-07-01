@@ -14,12 +14,22 @@
 
 <body class="bg-black text-white">
   <div id="root"></div>
-  <script>
-    window.scrollToBottom = (elementId) => {
+  <script type="module">
+    window.scrollToBottom = function (elementId) {
       const el = document.getElementById(elementId);
       if (el) {
         el.scrollTo(0, el.scrollHeight);
       }
+    };
+
+    window.preventEnterDefault = function (elementId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+        }
+      });
     };
   </script>
   <script src="_framework/blazor.webassembly.js"></script>
