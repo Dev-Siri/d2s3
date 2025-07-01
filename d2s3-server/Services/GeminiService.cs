@@ -60,9 +60,6 @@ namespace d2s3_server.Services
         };
       }
       else
-        Console.WriteLine(
-          JsonSerializer.Serialize(response)
-        );
       {
         return new Response
         {

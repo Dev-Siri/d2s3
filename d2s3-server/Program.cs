@@ -67,11 +67,4 @@ app.Map("/chat/{id:guid}", async (Guid id, [FromQuery] bool isNew, HttpContext c
     }
 });
 
-app.MapPost("/gemini", async ([FromBody] AiRequest request, GeminiService geminiService) =>
-{
-    // var result = await geminiService.GenerateTextAsync(request.Prompt);
-    // return Results.Json("÷");
-})
-.WithName("GenerateTextGemini");
-
 app.Run();
