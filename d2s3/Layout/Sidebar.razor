@@ -1,6 +1,60 @@
+@using System.Text.Json
+@using d2s3.State
+@using d2s3.Models
+@inject SidebarStateContainer SidebarStateContainer
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService LocalStorageService
+
 <aside class="flex flex-col p-4 border-r h-full border-r-light-gray bg-light-gray">
   <span class="text-lg text-center font-bold">d2s3</span>
   <a href="/" class="my-4 rounded-md cursor-pointer duration-200 hover:opacity-50">
     New Chat
   </a>
+  <p class="uppercase text-xs font-semibold gray-slate-200 select-none">Chat History</p>
+  <div class="flex flex-col gap-2 overflow-y-auto h-full w-full pt-5">
+    @if (SidebarStateContainer.ChatThreads.Count == 0)
+    {
+      <p class="text-center text-xs font-semibold text-gray-400 select-none uppercase mt-[50%]">No chats available</p>
+    }
+    else
+    {
+      @foreach (var chat in SidebarStateContainer.ChatThreads)
+      {
+        <div
+          class="mb-1 w-full w-full @(NavigationManager.Uri.Contains(chat.ChatId) ? "bg-[#2f2f2f] w-full px-4 p-2.5 rounded-2xl" : "bg-transparent hover:opacity-50 duration-200 px-4")">
+          <NavLink href=@($"/chat/{chat.ChatId}")>
+            <span class="">
+              @(chat.Title ?? "Untitled Chat")
+            </span>
+          </NavLink>
+        </div>
+      }
+    }
+  </div>
 </aside>
+
+@code {
+  protected override async Task OnInitializedAsync()
+  {
+    SidebarStateContainer.OnChatThreadsChange += StateHasChanged;
+    NavigationManager.LocationChanged += OnLocationChanged;
+    var chats = await LocalStorageService.GetItemAsStringAsync("chats");
+
+    if (chats == null) return;
+
+    var jsonChats = JsonSerializer.Deserialize<List<ChatThread>>(chats);
+
+    SidebarStateContainer.ChatThreads = jsonChats ?? new List<ChatThread>();
+  }
+
+  private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+  {
+    StateHasChanged();
+  }
+
+  public void Dispose()
+  {
+    SidebarStateContainer.OnChatThreadsChange -= StateHasChanged;
+    NavigationManager.LocationChanged -= OnLocationChanged;
+  }
+}

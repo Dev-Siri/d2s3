@@ -1,6 +1,5 @@
 @using d2s3.State
 @using d2s3.Models
-@using d2s3.Services
 @inject ChatStateContainer ChatState
 @inject NavigationManager NavigationManager
 
@@ -13,8 +12,9 @@
   [Parameter]
   public required string Suggestion { get; set; }
 
-  private async void InvokeSuggestion()
+  private async Task InvokeSuggestion()
   {
+    ChatState.CurrentPrompt = Suggestion;
     await ChatState.HandlePrompt(NavigationManager, null, true);
     await InvokeAsync(StateHasChanged);
   }

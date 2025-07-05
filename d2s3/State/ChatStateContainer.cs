@@ -14,24 +14,42 @@ namespace d2s3.State
     public event Action? OnPromptChange;
     public event Action? OnMessagesChange;
     public event Action? OnAiLoadingResponseChange;
-    private readonly ClientWebSocket _WebSocket = new();
+    private ClientWebSocket? _WebSocket = new();
 
-    public WebSocket WebSocket
+    public WebSocket? WebSocket
     {
       get => _WebSocket;
     }
 
     public async Task ConnectWS(string ChatId, bool IsNew, CancellationTokenSource disposalTokenSource)
     {
-      if (_WebSocket.State == WebSocketState.Open) return;
-      await _WebSocket.ConnectAsync(new Uri($"ws://localhost:5203/chat/{ChatId}?isNew={IsNew}"), disposalTokenSource.Token);
+      if (_WebSocket != null && _WebSocket.State == WebSocketState.Open)
+      {
+        await DisconectWS(disposalTokenSource); // Just to be safe
+      }
+
+      var ws = new ClientWebSocket();
+      await ws.ConnectAsync(new Uri($"ws://localhost:5203/chat/{ChatId}?isNew={IsNew}"), disposalTokenSource.Token);
+      _WebSocket = ws;
     }
 
-    public async Task DisconectWS(CancellationTokenSource disposalTokenSource)
+    public async Task DisconectWS(CancellationTokenSource tokenSource)
     {
-      if (_WebSocket.State == WebSocketState.Open)
+      try
       {
-        await _WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Bye", disposalTokenSource.Token);
+        if (_WebSocket != null && _WebSocket?.State == WebSocketState.Open)
+        {
+          await _WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", tokenSource.Token);
+        }
+
+        _WebSocket?.Dispose();
+        _WebSocket = null;
+      }
+      catch (OperationCanceledException) { } // Not a true-error
+      catch (Exception ex)
+      {
+        Console.WriteLine($"Error during WebSocket disconnect: {ex.Message}");
+        _WebSocket = null;
       }
     }
 
@@ -41,13 +59,15 @@ namespace d2s3.State
 
       if (string.IsNullOrEmpty(prompt)) return;
 
+      IsLoadingAiResponse = true;
+
       if (ChatId == null)
       {
         var newChatId = Guid.NewGuid();
-        navigationManager.NavigateTo($"/chat/{newChatId}?isNew=true");
+        navigationManager.NavigateTo($"/chat/{newChatId}?isNew=true&prompt={Uri.EscapeDataString(prompt)}");
 
         // if this doesnt work, pray, and it might work again 🙏🙏
-        while (WebSocket.State != WebSocketState.Open)
+        while (WebSocket?.State != WebSocketState.Open)
         {
           await Task.Delay(100);
         }
@@ -69,17 +89,20 @@ namespace d2s3.State
 
       if (_WebSocket != null && _WebSocket.State == WebSocketState.Open)
       {
-        IsLoadingAiResponse = true;
-
         var jsonRequest = JsonSerializer.Serialize(new AiRequest
         {
           Prompt = prompt
         });
 
         await _WebSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(jsonRequest)), WebSocketMessageType.Text, true, CancellationToken.None);
-
-        IsLoadingAiResponse = false;
       }
+
+      IsLoadingAiResponse = false;
+
+      var uri = navigationManager.ToAbsoluteUri(navigationManager.Uri);
+      var basePath = uri.GetLeftPart(UriPartial.Path);
+      navigationManager.NavigateTo(basePath, replace: true);
+
     }
 
     public string CurrentPrompt
@@ -90,7 +113,7 @@ namespace d2s3.State
         if (_CurrentPrompt != value)
         {
           _CurrentPrompt = value;
-          NotifyPromptStateChanged();
+          OnPromptChange?.Invoke();
         }
       }
     }
@@ -103,7 +126,7 @@ namespace d2s3.State
         if (_IsLoadingAiResponse != value)
         {
           _IsLoadingAiResponse = value;
-          NotifyAiResponseLoadingStateChanged();
+          OnAiLoadingResponseChange?.Invoke();
         }
       }
     }
@@ -114,13 +137,8 @@ namespace d2s3.State
       set
       {
         _CurrentChatMessages = value;
-        NotifyMessagesStateChanged();
+        OnMessagesChange?.Invoke();
       }
     }
-
-
-    private void NotifyPromptStateChanged() => OnPromptChange?.Invoke();
-    private void NotifyMessagesStateChanged() => OnMessagesChange?.Invoke();
-    private void NotifyAiResponseLoadingStateChanged() => OnAiLoadingResponseChange?.Invoke();
   }
 }

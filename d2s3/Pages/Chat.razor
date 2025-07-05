@@ -1,10 +1,14 @@
 @using System.Threading
 @using System.Text.Json
+@using System.Net.WebSockets
 @using System.Text
 @using d2s3.State
 @using d2s3.Models
 @using Markdig
 @inject ChatStateContainer ChatState
+@inject ILocalStorageService LocalStorageService
+@inject SidebarStateContainer SidebarStateContainer
+@inject HttpClient HttpClient
 @implements IDisposable
 @page "/chat/{ChatId:nonfile?}"
 
@@ -12,33 +16,42 @@
 
 <div class="flex flex-col items-center justify-center h-screen">
   <div class="h-3/4 w-3/5 flex flex-col overflow-y-auto overflow-x-hidden gap-2 pt-4 pb-20" id="chat-list">
-    @foreach (var message in ChatState.CurrentChatMessages)
+    @if (isLoadingInitialMessages)
     {
-      <span class="@GenerateMessageClasses(message.Role, message.MessageType)">
-        @if (message.MessageType == MessageType.Failure)
-        {
-          <i class="bi bi-exclamation-circle-fill"></i>
-        }
-        @if (message.MessageType == MessageType.Success && message.Role == UserRole.Ai)
-        {
-          <img src="/siri.jpeg" height="20" width="20" class="rounded-full mt-1" />
-        }
-        <div class="w-max-fill overflow-x-auto">
-          @((MarkupString)Markdown.ToHtml(message.MessageText))
-        </div>
-      </span>
-    }
-    @if (ChatState.IsLoadingAiResponse)
-    {
-      <div class="flex gap-2 animate-pulse items-center">
-        <div class="h-4 w-4 rounded-full bg-white">
-        </div>
-        <p>Thinking</p>
+      <div class="h-screen flex flex-col items-center justify-center gap-2">
+        Loading Chat...
       </div>
+    }
+    else
+    {
+      @foreach (var message in ChatState.CurrentChatMessages)
+      {
+        <span class="@GenerateMessageClasses(message.Role, message.MessageType)">
+          @if (message.MessageType == MessageType.Failure)
+          {
+            <i class="bi bi-exclamation-circle-fill"></i>
+          }
+          @if (message.MessageType == MessageType.Success && message.Role == UserRole.Ai)
+          {
+            <img src="/siri.avif" alt="Siri Logo" draggable="false" height="20" width="20" class="rounded-full mt-1" />
+          }
+          <div class="w-max-fill overflow-x-auto">
+            @((MarkupString)Markdown.ToHtml(message.MessageText))
+          </div>
+        </span>
+      }
+      @if (ChatState.IsLoadingAiResponse)
+      {
+        <div class="flex gap-2 animate-pulse items-center">
+          <div class="h-4 w-4 rounded-full bg-white">
+          </div>
+          <p>Thinking</p>
+        </div>
+      }
     }
   </div>
   <div class="flex justify-center w-full h-1/4">
-    <ChatInput />
+    <ChatInput ChatId="@ChatId" />
   </div>
 </div>
 
@@ -46,10 +59,14 @@
   [Parameter]
   public string? ChatId { get; set; }
   [Parameter]
+  [SupplyParameterFromQuery(Name = "prompt")]
+  public required string Prompt { get; set; }
+  [Parameter]
   [SupplyParameterFromQuery(Name = "isNew")]
   public bool IsNew { get; set; } = false;
 
   private string title = "New Chat";
+  private bool isLoadingInitialMessages = false;
 
   CancellationTokenSource DisposalTokenSource = new CancellationTokenSource();
 
@@ -84,6 +101,13 @@
   {
     if (ChatId == null) return;
 
+    if (IsNew)
+    {
+      SidebarStateContainer.ChatThreads = new List<ChatThread>(SidebarStateContainer.ChatThreads)
+{ new ChatThread { ChatId = ChatId } };
+      StateHasChanged();
+    }
+
     await ChatState.ConnectWS(ChatId, IsNew, DisposalTokenSource);
     _ = ReceiveLoop();
   }
@@ -94,6 +118,11 @@
 
     while (!DisposalTokenSource.IsCancellationRequested)
     {
+      if (ChatState.WebSocket == null || ChatState.WebSocket.State != WebSocketState.Open)
+      {
+        break;
+      }
+
       var received = await ChatState.WebSocket.ReceiveAsync(buffer, DisposalTokenSource.Token);
 
       try
@@ -146,5 +175,97 @@
 
     DisposalTokenSource.Cancel();
     _ = ChatState.DisconectWS(DisposalTokenSource);
+  }
+
+  private async Task HandleTitleChange()
+  {
+    var response = await HttpClient.GetAsync($"http://localhost:5203/chat/title?prompt={Prompt}");
+    var responseText = await response.Content.ReadAsStringAsync();
+
+    if (responseText == null) return;
+
+    var aiResponse = JsonSerializer.Deserialize<AiResponse>(responseText, new JsonSerializerOptions
+    {
+      PropertyNameCaseInsensitive = true
+    });
+
+    if (aiResponse == null || !aiResponse.Success) return;
+
+    var storedMessages = await LocalStorageService.GetItemAsStringAsync("chats") ?? "[]";
+    var jsonMessages = JsonSerializer.Deserialize<List<ChatThread>>(storedMessages) ?? [];
+
+    if (ChatId == null) return;
+
+    var existingChat = (jsonMessages).FirstOrDefault(c => c.ChatId == ChatId);
+
+    List<ChatThread> addedMessages;
+
+    if (existingChat == null)
+    {
+      addedMessages = new List<ChatThread>(jsonMessages) { new ChatThread { ChatId = ChatId, Title =
+aiResponse.ResponseMessage } };
+    }
+    else
+    {
+      existingChat.Title = aiResponse.ResponseMessage;
+      addedMessages = new List<ChatThread>(jsonMessages);
+    }
+
+    title = aiResponse.ResponseMessage;
+    SidebarStateContainer.ChatThreads = addedMessages;
+
+    StateHasChanged();
+
+    await LocalStorageService.SetItemAsStringAsync("chats", JsonSerializer.Serialize(addedMessages));
+  }
+
+  protected override async Task OnParametersSetAsync()
+  {
+    if (IsNew)
+    {
+      await HandleTitleChange();
+    }
+    else
+    {
+      isLoadingInitialMessages = true;
+      StateHasChanged();
+
+      var chatResponse = await HttpClient.GetAsync($"http://localhost:5203/chat/{ChatId}/messages");
+      var chatResponseText = await chatResponse.Content.ReadAsStringAsync();
+
+      if (chatResponseText != null)
+      {
+        var aiChatResponse = JsonSerializer.Deserialize<List<ChatMessage>>(chatResponseText, new JsonSerializerOptions
+        {
+          PropertyNameCaseInsensitive = true
+        });
+
+        if (aiChatResponse != null)
+        {
+          ChatState.CurrentChatMessages = aiChatResponse;
+        }
+      }
+
+      isLoadingInitialMessages = false;
+      StateHasChanged();
+    }
+  }
+
+  protected async Task DisposeAsync()
+  {
+    if (ChatState.WebSocket != null && ChatState.WebSocket.State == WebSocketState.Open)
+    {
+      DisposalTokenSource.Cancel();
+      await ChatState.DisconectWS(DisposalTokenSource);
+    }
+
+    ChatState.CurrentChatMessages = new List<ChatMessage>();
+    DisposalTokenSource = new CancellationTokenSource();
+
+    if (!string.IsNullOrWhiteSpace(ChatId))
+    {
+      await ChatState.ConnectWS(ChatId, IsNew, DisposalTokenSource);
+      _ = ReceiveLoop();
+    }
   }
 }

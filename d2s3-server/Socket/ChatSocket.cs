@@ -32,7 +32,7 @@ namespace d2s3_server.Socket
 
       while (webSocket.State == WebSocketState.Open)
       {
-        var buffer = new byte[1024 * 4];
+        var buffer = new byte[1024 * 8];
         var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
         if (result.MessageType == WebSocketMessageType.Text)

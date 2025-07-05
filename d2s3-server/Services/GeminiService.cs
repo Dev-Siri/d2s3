@@ -79,7 +79,7 @@ namespace d2s3_server.Services
             Parts =
             [
               new ModelContentPart {
-                Text = $"Give a short, clear, 3- to 7-word title (no quotes, no explanation) summarizing this user prompt: '{firstPrompt}'"
+                Text = $"Give a short, clear, 3- to 7-word title (no quotes, no explanation) summarizing the prompt: '{firstPrompt}'"
               }
             ]
           }
