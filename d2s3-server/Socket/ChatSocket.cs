@@ -2,20 +2,32 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using d2s3_server.Models;
+using d2s3_server.Models.Mongo;
 using d2s3_server.Services;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace d2s3_server.Socket
 {
   class ChatSocket
   {
-    public static async Task HandleWSMessages(HttpContext context, WebSocket webSocket, MongoClient mongo, GeminiService geminiService, Guid chatId, bool isNew)
+    public static async Task HandleWSMessages(WebSocket webSocket, MongoClient mongo, GeminiService geminiService, Guid chatId, bool isNew)
     {
       var messages = new List<OneModelMessage>();
+      var db = mongo.GetDatabase("d2s3");
 
       if (!isNew)
       {
-        // mongo. 
+        db.GetCollection<AiMessage>("messages")
+        .Find(m => m.ChatId == chatId)
+        .ToList()
+        .ForEach(msg => messages.Add(
+          new OneModelMessage
+          {
+            Role = msg.Role == AiMessageRole.Ai ? "model" : "user",
+            Parts = [new ModelContentPart { Text = msg.Message }]
+          }
+        ));
       }
 
       while (webSocket.State == WebSocketState.Open)
@@ -58,6 +70,14 @@ namespace d2s3_server.Socket
             ]
           });
 
+          await db.GetCollection<AiMessage>("messages").InsertOneAsync(new AiMessage
+          {
+            Id = ObjectId.GenerateNewId(),
+            ChatId = chatId,
+            Role = AiMessageRole.User,
+            Message = aiRequest.Prompt
+          });
+
           var response = await geminiService.GenerateTextAsync(messages);
 
           messages.Add(new OneModelMessage
@@ -67,6 +87,14 @@ namespace d2s3_server.Socket
             [
               new ModelContentPart { Text = response.ResponseMessage }
             ]
+          });
+
+          await db.GetCollection<AiMessage>("messages").InsertOneAsync(new AiMessage
+          {
+            Id = ObjectId.GenerateNewId(),
+            ChatId = chatId,
+            Role = AiMessageRole.Ai,
+            Message = response.ResponseMessage
           });
 
           await SendAiResponse(webSocket, response);

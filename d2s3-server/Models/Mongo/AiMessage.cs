@@ -13,6 +13,9 @@ namespace d2s3_server.Models.Mongo
   {
     [BsonId]
     public required ObjectId Id { get; set; }
+    [BsonElement("chatId")]
+    [BsonRepresentation(BsonType.String)]
+    public required Guid ChatId { get; set; }
 
     [BsonElement("role")]
     [BsonRepresentation(BsonType.String)]
